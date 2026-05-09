@@ -1,0 +1,10 @@
+asgiref==3.11.1
+Django==6.0.4
+django-filter==25.1
+djangorestframework==3.17.1
+psycopg2-binary==2.9.11
+python-dotenv==1.0.1
+python-decouple==3.8
+sqlparse==0.5.5
+gunicorn==22.0.0
+djangorestframework-simplejwt
