@@ -74,7 +74,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
         workspace = self.get_object()
 
-        from documents.models import Document
+        from apps.documents.models import Document
 
         doc_stats = Document.objects.filter(workspace=workspace).aggregate(
             total_documents=Count("id"),

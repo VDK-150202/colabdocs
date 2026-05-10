@@ -1,7 +1,7 @@
 import uuid
 from django.conf import settings
 from django.db import models
-from workspaces.models import Workspace
+from apps.workspaces.models import Workspace
 
 
 class Tag(models.Model):

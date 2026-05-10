@@ -4,7 +4,7 @@ from django.dispatch import receiver
 
 def register_signals():
 
-    from documents.models import AuditLog, Document  # deferred import avoids circular refs
+    from apps.documents.models import AuditLog, Document  # deferred import avoids circular refs
 
     @receiver(post_save, sender=Document)
     def document_post_save(sender, instance, created, **kwargs):
