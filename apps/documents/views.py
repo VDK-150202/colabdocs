@@ -1,16 +1,3 @@
-"""
-documents/views.py
-ViewSets for Document, Comment, Tag, and AuditLog.
-
-SDE-2 patterns demonstrated:
-- @transaction.atomic on create and update (version snapshots).
-- select_related / prefetch_related globally in get_queryset.
-- @action for /summary/, /versions/, /stats/ endpoints.
-- Q objects for cross-field search.
-- .annotate() + .aggregate() for aggregated endpoints.
-- django-filter for AuditLog range queries.
-"""
-
 from django.db import transaction
 from django.db.models import Avg, Count, Q
 from rest_framework import permissions, status, viewsets
@@ -28,13 +15,7 @@ from .serializers import (
     TagSerializer,
 )
 
-
-# ---------------------------------------------------------------------------
-# Tag ViewSet
-# ---------------------------------------------------------------------------
-
 class TagViewSet(viewsets.ModelViewSet):
-    """CRUD for Tags inside a workspace."""
 
     serializer_class = TagSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -45,17 +26,7 @@ class TagViewSet(viewsets.ModelViewSet):
         return Tag.objects.filter(workspace__members__user=self.request.user).distinct()
 
 
-# ---------------------------------------------------------------------------
-# Document ViewSet
-# ---------------------------------------------------------------------------
-
 class DocumentViewSet(viewsets.ModelViewSet):
-    """
-    Full CRUD for Documents plus custom actions:
-      GET  /api/documents/{id}/versions/  – version history
-      GET  /api/documents/{id}/summary/   – AI-style summary placeholder
-      GET  /api/documents/stats/          – aggregate stats across workspace
-    """
 
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "id"
@@ -64,11 +35,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at", "updated_at", "title"]
 
     def get_queryset(self):
-        """
-        Scoped to workspaces the user is a member of.
-        Annotated with version_count and comment_count for list serializer.
-        Q-object search across title + content.
-        """
         qs = (
             Document.objects.filter(workspace__members__user=self.request.user)
             .select_related("workspace", "created_by", "last_edited_by")
@@ -80,7 +46,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
             .distinct()
         )
 
-        # Q-object free-text search across title AND content
         search = self.request.query_params.get("q")
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(content__icontains=search))
@@ -94,10 +59,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        """
-        Atomically create Document + first DocumentVersion snapshot.
-        If the version insert fails, the document insert is rolled back.
-        """
         doc = serializer.save(created_by=self.request.user)
         DocumentVersion.objects.create(
             document=doc,
@@ -110,11 +71,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_update(self, serializer):
-        """
-        Atomically update Document + append a new DocumentVersion snapshot.
-        version_number = MAX(existing) + 1 to keep sequential ordering.
-        select_for_update() prevents a race condition on version_number.
-        """
         doc = serializer.save(last_edited_by=self.request.user)
 
         last_version = (
@@ -134,9 +90,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
             saved_by=self.request.user,
         )
 
-    # ------------------------------------------------------------------
-    # Custom actions
-    # ------------------------------------------------------------------
 
     @action(detail=True, methods=["get"], url_path="versions")
     def versions(self, request, id=None):
@@ -202,15 +155,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         )
 
 
-# ---------------------------------------------------------------------------
-# Comment ViewSet
-# ---------------------------------------------------------------------------
-
 class CommentViewSet(viewsets.ModelViewSet):
-    """
-    Comments nested under a document.
-    /api/documents/{document_id}/comments/
-    """
 
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -228,17 +173,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         serializer.save(document=doc, author=self.request.user)
 
 
-# ---------------------------------------------------------------------------
-# AuditLog ViewSet (read-only)
-# ---------------------------------------------------------------------------
-
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Read-only audit trail.
-    Supports django-filter range queries:
-      GET /api/audit-logs/?timestamp_after=2024-01-01&timestamp_before=2024-12-31
-      GET /api/audit-logs/?action=created&model_name=Document
-    """
 
     serializer_class = AuditLogSerializer
     permission_classes = [permissions.IsAuthenticated]
